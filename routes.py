@@ -22,6 +22,8 @@ def login():
             'message': 'Login successful',
             'role': user.role,
             'name': user.name,
+            'userId': user.id,
+            'department_id': department.id,
             'departmentName': department_name
         }), 200
     return jsonify({'message': 'Invalid email or password'}), 401
@@ -57,7 +59,9 @@ def manage_collaborators():
 
     # Handling GET request
     role = request.args.get('role')
-    department_id = request.args.get('department_id')  # Retrieve department_id from query parameters
+    department_id = request.args.get('department_id')  
+    id = request.args.get('id')  
+
     query = Collaborator.query
 
     # Filter by role if provided
@@ -67,6 +71,9 @@ def manage_collaborators():
     # Filter by department_id if provided
     if department_id:
         query = query.filter_by(department_id=department_id)
+    # Filter by id if provided
+    if id:
+        query = query.filter_by(id=id)
 
     collaborators = query.all()
     
@@ -75,8 +82,11 @@ def manage_collaborators():
         'id': collab.id,
         'name': collab.name,
         'email': collab.email,
+        'phone_number':collab.phone_number,
         'role': collab.role,
-        'department_id': collab.department_id
+        'password': collab.password,
+        'department_id': collab.department_id,
+        
     } for collab in collaborators])
 
 @main.route('/collaborators/<int:id>', methods=['PUT', 'DELETE'])
@@ -136,9 +146,7 @@ def delete_task_definition(id):
     db.session.delete(task_definition)
     db.session.commit()
     return jsonify({'message': 'Task Definition deleted successfully'}), 200
-from flask import request, jsonify
-from datetime import datetime
-from models import db, Task, Equipment  # Assuming these are your SQLAlchemy models
+
 
 # Task Routes
 @main.route('/tasks', methods=['GET', 'POST', 'PUT'])
