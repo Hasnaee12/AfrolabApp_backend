@@ -145,8 +145,20 @@ def manage_task_definitions():
         return jsonify({'message': 'Task Definition not found'}), 404
    
     # GET method with optional department_id filter
-    department_id = request.args.get('department_id')
-    if department_id:
+    id = request.args.get('id') 
+    department_id = request.args.get('department_id')  
+    # Filter by id if provided
+    if id:
+        task_definition = TaskDefinition.query.get(id)
+        if task_definition:
+            return jsonify([{
+                'id': task_definition.id,
+                'name': task_definition.name,
+                'department_id': task_definition.department_id
+            }])
+        else:
+            return jsonify({'message': 'Task Definition not found'}), 404
+    elif department_id:
         task_definitions = TaskDefinition.query.filter_by(department_id=department_id).all()
     else:
         task_definitions = TaskDefinition.query.all()
@@ -236,19 +248,37 @@ def manage_tasks():
             db.session.commit()
             return jsonify({'message': 'Task updated successfully'}), 200
         return jsonify({'message': 'Task not found'}), 404
+    # GET method for retrieving tasks
+    collaborator_id = request.args.get('collaborator_id')
 
-    # GET method for retrieving all tasks
-    tasks = Task.query.all()
-    return jsonify([{
-        'id': task.id,
-        'task_definition_id': task.task_definition_id,
-        'equipment_ids': [equipment.id for equipment in task.equipments],
-        'client': task.client,
-        'location': task.location,
-        'start_time': task.start_time.isoformat(),
-        'end_time': task.end_time.isoformat(),
-        'collaborator_id': task.collaborator_id
-    } for task in tasks])
+    if collaborator_id:
+        tasks = Task.query.filter_by(collaborator_id=collaborator_id).all()
+        if tasks:
+            return jsonify([{
+                'id': task.id,
+                'task_definition_id': task.task_definition_id,
+                'equipment_ids': [equipment.id for equipment in task.equipments],
+                'client': task.client,
+                'location': task.location,
+                'start_time': task.start_time.isoformat(),
+                'end_time': task.end_time.isoformat(),
+                'collaborator_id': task.collaborator_id
+            } for task in tasks])
+        else:
+            return jsonify({'message': 'No tasks found for the specified collaborator_id'}), 404
+    else:
+        tasks = Task.query.all()
+        return jsonify([{
+            'id': task.id,
+            'task_definition_id': task.task_definition_id,
+            'equipment_ids': [equipment.id for equipment in task.equipments],
+            'client': task.client,
+            'location': task.location,
+            'start_time': task.start_time.isoformat(),
+            'end_time': task.end_time.isoformat(),
+            'collaborator_id': task.collaborator_id
+        } for task in tasks])
+
 
 @main.route('/tasks/<int:id>', methods=['DELETE'])
 def delete_task(id):
@@ -281,9 +311,17 @@ def manage_equipment():
             return jsonify({'message': 'Equipment updated successfully'}), 200
         return jsonify({'message': 'Equipment not found'}), 404
     # GET request
-    equipment = Equipment.query.all()
-    return jsonify([{'id': equip.id, 'name': equip.name} for equip in equipment])
-
+    id = request.args.get('id')  
+    # Filter by id if provided
+    if id:
+        equipment = Equipment.query.filter_by(id=id).all()
+        if equipment:
+            return jsonify([{'id': equip.id, 'name': equip.name} for equip in equipment])
+        else:
+            return jsonify({'message': 'Equipment not found'}), 404
+    else:
+        equipment = Equipment.query.all()
+        return jsonify([{'id': equip.id, 'name': equip.name} for equip in equipment])
 @main.route('/equipment/<int:id>', methods=['DELETE'])
 def delete_equipment(id):
     equipment = Equipment.query.get(id)
@@ -300,26 +338,47 @@ def manage_attendance():
     if request.method == 'POST':
         data = request.json
         new_attendance = Attendance(
-            date=data['date'],
-            status=data['status'],
-            collaborator_id=data['collaborator_id']
+            date=data.get('date'),
+            status=data.get('status'),
+            collaborator_id=data.get('collaborator_id')
         )
         db.session.add(new_attendance)
         db.session.commit()
         return jsonify({'message': 'Attendance recorded successfully'}), 201
+
     elif request.method == 'PUT':
         data = request.json
-        attendance = Attendance.query.get(data['id'])
+        attendance = Attendance.query.get(data.get('id'))
         if attendance:
-            attendance.date = data['date']
-            attendance.status = data['status']
-            attendance.collaborator_id = data['collaborator_id']
+            attendance.date = data.get('date')
+            attendance.status = data.get('status')
+            attendance.collaborator_id = data.get('collaborator_id')
             db.session.commit()
             return jsonify({'message': 'Attendance updated successfully'}), 200
         return jsonify({'message': 'Attendance record not found'}), 404
-    
-    attendance_records = Attendance.query.all()
-    return jsonify([{'id': att.id, 'date': att.date, 'status': att.status, 'collaborator_id': att.collaborator_id} for att in attendance_records])
+
+    collaborator_id = request.args.get('collaborator_id')
+
+    if collaborator_id:
+        attendance_records = Attendance.query.filter_by(collaborator_id=collaborator_id).all()
+        if attendance_records:
+            return jsonify([{
+                'id': att.id, 
+                'date': att.date, 
+                'status': att.status, 
+                'collaborator_id': att.collaborator_id
+            } for att in attendance_records])
+        else:
+            return jsonify({'message': 'No attendance records found for the specified collaborator_id'}), 404
+    else:
+        attendance_records = Attendance.query.all()
+        return jsonify([{
+            'id': att.id, 
+            'date': att.date, 
+            'status': att.status, 
+            'collaborator_id': att.collaborator_id
+        } for att in attendance_records])
+
 @main.route('/attendance/<int:id>', methods=['DELETE'])
 def delete_attendance(id):
     attendance = Attendance.query.get(id)
