@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from models import db, Department, Collaborator, TaskDefinition, Task, Attendance, Report, Equipment
-from datetime import datetime
+from datetime import datetime, time
 
 main = Blueprint('main', __name__)
 
@@ -23,8 +23,8 @@ def login():
             'role': user.role,
             'name': user.name,
             'userId': user.id,
-            'department_id': department.id,
-            'departmentName': department_name
+            'department_id': user.department_id,
+            'departmentName': department_name if user.department_id else None
         }), 200
     return jsonify({'message': 'Invalid email or password'}), 401
 
@@ -45,6 +45,15 @@ def manage_departments():
 def manage_collaborators():
     if request.method == 'POST':
         data = request.json
+        print('Received data:', data) 
+        required_fields = ['name', 'email', 'password', 'phone_number','role', 'department_id']
+        
+        # Check for missing required fields
+        for field in required_fields:
+            if field not in data:
+                print(f'Missing required field: {field}')  # Debug log
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
         new_collaborator = Collaborator(
             name=data['name'],
             email=data['email'],
@@ -94,17 +103,25 @@ def update_or_delete_collaborator(id):
     collaborator = Collaborator.query.get_or_404(id)
     if request.method == 'PUT':
         data = request.json
+        required_fields = ['name', 'email', 'password', 'phone_number','role', 'department_id']
+
+        # Check for missing required fields
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
         collaborator.name = data['name']
         collaborator.email = data['email']
         collaborator.phone_number = data.get('phone_number')
         collaborator.role = data['role']
+        collaborator.password = data['password']
         collaborator.department_id = data['department_id']
         db.session.commit()
-        return jsonify({'message': 'Collaborator updated successfully'})
+        return jsonify({'message': 'Collaborator updated successfully'}), 200
     elif request.method == 'DELETE':
         db.session.delete(collaborator)
         db.session.commit()
-        return jsonify({'message': 'Collaborator deleted successfully'})
+        return jsonify({'message': 'Collaborator deleted successfully'}), 200
 # Task Definition Routes
 @main.route('/task_definitions', methods=['GET', 'POST', 'PUT'])
 def manage_task_definitions():
@@ -147,32 +164,57 @@ def delete_task_definition(id):
     db.session.commit()
     return jsonify({'message': 'Task Definition deleted successfully'}), 200
 
-
+def parse_time(time_str):
+    """Parses a time string in HH:MM:SS format."""
+    return datetime.strptime(time_str, "%H:%M:%S").time()
+    
 # Task Routes
 @main.route('/tasks', methods=['GET', 'POST', 'PUT'])
 def manage_tasks():
     if request.method == 'POST':
         data = request.json
         task_data = data.get('task')  # Extract task data from request object
+# Debugging: Print received time values
+        print("Received start_time:", task_data.get('start_time'))
+        print("Received end_time:", task_data.get('end_time'))
+        try:
+            start_time = parse_time(task_data['start_time'])
+            end_time = parse_time(task_data['end_time'])
+        except ValueError as e:
+            print(f"Failed to parse time: {e}")
+            return jsonify({'error': 'Invalid time format'}), 400
 
-        new_task = Task(
-            task_definition_id=task_data.get('task_definition_id'),
-            client=task_data.get('client'),
-            location=task_data.get('location'),
-            start_time=datetime.fromisoformat(task_data['start_time']),
-            end_time=datetime.fromisoformat(task_data['end_time']),
-            collaborator_id=task_data.get('collaborator_id')
-        )
+        task_definition_id = task_data.get('task_definition_id')
+        if not task_definition_id:
+            return jsonify({'error': 'Task definition ID is required'}), 400
 
-        # Handle equipment IDs
-        equipment_ids = task_data.get('equipment_ids', [])
-        if equipment_ids:
-            new_task.equipments = [Equipment.query.get(eid) for eid in equipment_ids]
+        task_definition = TaskDefinition.query.get(task_definition_id)
+        if not task_definition:
+            return jsonify({'error': 'Task definition not found'}), 404
 
-        db.session.add(new_task)
-        db.session.commit()
-        return jsonify({'message': 'Task created successfully'}), 201
+        try:
+            new_task = Task(
+                task_definition_id=task_definition_id,
+                client=task_data.get('client'),
+                location=task_data.get('location'),
+                start_time=start_time,
+                end_time=end_time,
+                collaborator_id=task_data.get('collaborator_id')
+            )
 
+            # Handle equipment IDs
+            equipment_ids = task_data.get('equipment_ids', [])
+            if equipment_ids:
+                new_task.equipments = [Equipment.query.get(eid) for eid in equipment_ids]
+
+            db.session.add(new_task)
+            db.session.commit()
+            return jsonify({'message': 'Task created successfully'}), 201
+
+        except Exception as e:
+            print(f"Error creating task: {e}")
+            db.session.rollback()
+            return jsonify({'error': 'Failed to create task'}), 500
     elif request.method == 'PUT':
         data = request.json
         task_data = data.get('task')  # Extract task data from request object
@@ -183,8 +225,8 @@ def manage_tasks():
             task.task_definition_id = task_data.get('task_definition_id')
             task.client = task_data.get('client')
             task.location = task_data.get('location')
-            task.start_time = datetime.fromisoformat(task_data['start_time'])
-            task.end_time = datetime.fromisoformat(task_data['end_time'])
+            task.start_time = parse_time(task_data['start_time'])
+            task.end_time = parse_time(task_data['end_time'])
             task.collaborator_id = task_data.get('collaborator_id')
 
             # Handle equipment IDs
@@ -194,10 +236,6 @@ def manage_tasks():
             db.session.commit()
             return jsonify({'message': 'Task updated successfully'}), 200
         return jsonify({'message': 'Task not found'}), 404
-
-    
-
-       
 
     # GET method for retrieving all tasks
     tasks = Task.query.all()
@@ -317,9 +355,14 @@ def manage_reports():
             return jsonify({'message': 'Report updated successfully'}), 200
         return jsonify({'message': 'Report not found'}), 404
     
-    
     reports = Report.query.all()
-    return jsonify([{'id': rep.id, 'date': rep.date, 'tasks': rep.tasks, 'attendance': rep.attendance, 'collaborator_id': rep.collaborator_id} for rep in reports])
+    return jsonify([{
+        'id': report.id,
+        'date': report.date,
+        'tasks': [...],  # Replace with actual tasks data
+        'attendance': [...]  # Replace with actual attendance data
+    } for report in reports]), 200
+    
 @main.route('/report/<int:id>', methods=['DELETE'])
 def delete_report(id):
     report = Report.query.get(id)
