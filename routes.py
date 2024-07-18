@@ -417,9 +417,10 @@ def manage_reports():
     reports = Report.query.all()
     return jsonify([{
         'id': report.id,
-        'date': report.date,
-        'tasks': [...],  # Replace with actual tasks data
-        'attendance': [...]  # Replace with actual attendance data
+        'date': report.date.strftime('%Y-%m-%d'),
+        'tasks': report.tasks,
+        'attendance': report.attendance,
+        'collaborator_id': report.collaborator_id
     } for report in reports]), 200
     
 @main.route('/report/<int:id>', methods=['DELETE'])
@@ -435,7 +436,7 @@ def delete_report(id):
 def get_user_info():
     # Exemple de récupération du nom de l'administrateur et du superviseur
     admin = Collaborator.query.filter_by(role='admin').first()
-    supervisor = Collaborator.query.filter_by(role='supervisor').first()
+    supervisor = Collaborator.query.filter_by(role='superuser').first()
     employee = Collaborator.query.filter_by(role='employee').first()
     return jsonify({
         'adminName': admin.name if admin else '',
