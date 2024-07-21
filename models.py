@@ -43,6 +43,7 @@ class Task(db.Model):
     location = db.Column(db.String(255), nullable=False)
     start_time = db.Column(db.Time, nullable=False)
     end_time = db.Column(db.Time, nullable=False)
+    date = db.Column(db.Date, nullable=False)  # Adding the date column
     collaborator_id = db.Column(db.Integer, db.ForeignKey('collaborator.id'))
 # Define many-to-many relationship with Equipment
     equipments = db.relationship('Equipment', secondary='task_equipments', backref='tasks')

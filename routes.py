@@ -211,6 +211,7 @@ def manage_tasks():
                 location=task_data.get('location'),
                 start_time=start_time,
                 end_time=end_time,
+                date=datetime.strptime(task_data.get('date'), '%Y-%m-%d').date(),
                 collaborator_id=task_data.get('collaborator_id')
             )
 
@@ -239,6 +240,7 @@ def manage_tasks():
             task.location = task_data.get('location')
             task.start_time = parse_time(task_data['start_time'])
             task.end_time = parse_time(task_data['end_time'])
+            task.date = parse_time(task_data['date'])
             task.collaborator_id = task_data.get('collaborator_id')
 
             # Handle equipment IDs
@@ -260,6 +262,7 @@ def manage_tasks():
                 'equipment_ids': [equipment.id for equipment in task.equipments],
                 'client': task.client,
                 'location': task.location,
+                'date': task.date.isoformat(),
                 'start_time': task.start_time.isoformat(),
                 'end_time': task.end_time.isoformat(),
                 'collaborator_id': task.collaborator_id
@@ -274,6 +277,7 @@ def manage_tasks():
             'equipment_ids': [equipment.id for equipment in task.equipments],
             'client': task.client,
             'location': task.location,
+            'date': task.date.isoformat(),
             'start_time': task.start_time.isoformat(),
             'end_time': task.end_time.isoformat(),
             'collaborator_id': task.collaborator_id
