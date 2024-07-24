@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models import db, Department, Collaborator, TaskDefinition, Task, Attendance, Report, Equipment
+from models import db, Department, Collaborator, TaskDefinition, Task, Attendance, Report, Equipment, TaskEquipment
 from datetime import datetime, time
 
 main = Blueprint('main', __name__)
@@ -216,9 +216,12 @@ def manage_tasks():
             )
 
             # Handle equipment IDs
-            equipment_ids = task_data.get('equipment_ids', [])
-            if equipment_ids:
-                new_task.equipments = [Equipment.query.get(eid) for eid in equipment_ids]
+            equipment_data = task_data.get('equipment_data', [])
+            for ed in equipment_data:
+                equipment_id = ed.get('equipment_id')
+                if equipment_id is not None:
+                    usage_count = ed.get('usage_count', 1)
+                    new_task.equipments.append(TaskEquipment(equipment_id=equipment_id, usage_count=usage_count))
 
             db.session.add(new_task)
             db.session.commit()
@@ -244,8 +247,12 @@ def manage_tasks():
             task.collaborator_id = task_data.get('collaborator_id')
 
             # Handle equipment IDs
-            equipment_ids = task_data.get('equipment_ids', [])
-            task.equipments = [Equipment.query.get(eid) for eid in equipment_ids]
+            equipment_data = task_data.get('equipment_data', [])
+            for ed in equipment_data:
+                equipment_id = ed.get('equipment_id')
+                if equipment_id is not None:
+                    usage_count = ed.get('usage_count', 1)
+                    new_task.equipments.append(TaskEquipment(equipment_id=equipment_id, usage_count=usage_count))
 
             db.session.commit()
             return jsonify({'message': 'Task updated successfully'}), 200
@@ -259,7 +266,7 @@ def manage_tasks():
             return jsonify([{
                 'id': task.id,
                 'task_definition_id': task.task_definition_id,
-                'equipment_ids': [equipment.id for equipment in task.equipments],
+                'equipment_data': [{'equipment_id': te.equipment_id, 'usage_count': te.usage_count} for te in task.equipments],
                 'client': task.client,
                 'location': task.location,
                 'date': task.date.isoformat(),
@@ -274,7 +281,7 @@ def manage_tasks():
         return jsonify([{
             'id': task.id,
             'task_definition_id': task.task_definition_id,
-            'equipment_ids': [equipment.id for equipment in task.equipments],
+            'equipment_data': [{'equipment_id': te.equipment_id, 'usage_count': te.usage_count} for te in task.equipments],
             'client': task.client,
             'location': task.location,
             'date': task.date.isoformat(),

@@ -46,13 +46,15 @@ class Task(db.Model):
     date = db.Column(db.Date, nullable=False)  # Adding the date column
     collaborator_id = db.Column(db.Integer, db.ForeignKey('collaborator.id'))
 # Define many-to-many relationship with Equipment
-    equipments = db.relationship('Equipment', secondary='task_equipments', backref='tasks')
+    equipments = db.relationship('TaskEquipment', back_populates='task')
 
-# Define association table for many-to-many relationship between Task and Equipment
-task_equipments = db.Table('task_equipments',
-    db.Column('task_id', db.Integer, db.ForeignKey('tasks.id'), primary_key=True),
-    db.Column('equipment_id', db.Integer, db.ForeignKey('equipment.id'), primary_key=True)
-)
+class TaskEquipment(db.Model):
+    __tablename__ = 'task_equipments'
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), primary_key=True)
+    equipment_id = db.Column(db.Integer, db.ForeignKey('equipment.id'), primary_key=True)
+    usage_count = db.Column(db.Integer, nullable=False)
+    task = db.relationship('Task', back_populates='equipments')
+    equipment = db.relationship('Equipment')
 
 class Attendance(db.Model):
     __tablename__ = 'attendance'
